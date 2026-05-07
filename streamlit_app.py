@@ -1,12 +1,53 @@
 import streamlit as st
 from openai import OpenAI
+import os
 
 # 1. Setup Page Configuration
-st.set_page_config(page_title="AI Chatbot", layout="wide")
+st.set_page_config(page_title="sana cht bot", layout="wide")
 
-st.title("💬 Chatbot")
+# 2. Add custom CSS to center the image and title
+st.markdown(
+    """
+    <style>
+    .avatar-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 2rem;
+        margin-bottom: 2rem;
+    }
+    .custom-title {
+        font-family: sans-serif;
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-top: 1rem;
+        text-align: center;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# 2. Create Tabs
+# 3. Handle the Image and Title Display
+st.markdown("<div class='avatar-container'>", unsafe_allow_html=True)
+
+# Path to the image file (adjust if necessary)
+image_filename = "sana_avatar.png"
+
+# Check if the file exists before trying to display it
+if os.path.exists(image_filename):
+    st.image(image_filename, width=200) # Displays the image centered
+else:
+    # Fallback if image isn't found
+    st.warning(f"Image not found. Please ensure '{image_filename}' is in the same folder.")
+    st.image("https://via.placeholder.com/200?text=Sana+Avatar", width=200)
+
+# Display the title below the image
+st.markdown("<div class='custom-title'>sana cht bot</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True) # Close container div
+
+
+# 4. Create Tabs for the rest of the application
 tab1, tab2 = st.tabs(["Settings", "Chat Interface"])
 
 with tab1:
