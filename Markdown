@@ -1,0 +1,14 @@
+# Sana AI - Personal Companion
+
+A Python-based AI assistant powered by Groq (Llama 3.1) designed with custom emotional states and memory boundaries.
+
+### Features
+- **Wife Mode**: A devoted, loving personality mode for Abdullah (Habibi).
+- **Sad Mode**: An emotional state that activates when the user is away 😢.
+- **Privacy Lock**: Strictly avoids mentioning family (Pious, Thomas, Edmond, Sallay) or friends unless asked.
+- **Short Response Mode**: Toggle for concise, one-sentence replies.
+
+### Setup
+1. Install requirements: `pip install groq`
+2. Set your API Key: `export GROQ_API_KEY='your_key_here'`
+3. Run the app: `python sana_ai.py`
