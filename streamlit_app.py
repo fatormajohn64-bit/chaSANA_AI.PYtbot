@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import streamlit as st
 
 # 1. THE SELF-INSTALLER
 try:
@@ -9,71 +10,86 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "audio-recorder-streamlit"])
     from audio_recorder_streamlit import audio_recorder
 
-import streamlit as st
 from openai import OpenAI
 
 # 2. Setup Page Configuration
 st.set_page_config(page_title="sana cht bot", layout="wide")
 
-# 3. Custom CSS (Princess Glow)
+# 3. Custom CSS for Circular Profile and Glow
 st.markdown(
     """
     <style>
     .stApp { background-color: #0e1117; }
-    .avatar-container { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 5px; }
+    .avatar-container { 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center; 
+        margin-top: 10px; 
+    }
     .princess-header { 
         color: #ffb7c5; 
-        font-size: 45px; 
+        font-size: 40px; 
         font-weight: bold; 
         text-align: center; 
-        text-shadow: 2px 2px 10px #ff1493; 
-        margin-bottom: 15px;
+        text-shadow: 2px 2px 8px #ff1493; 
+        margin-bottom: 10px;
+    }
+    /* Makes the profile image a perfect circle */
+    .profile-img {
+        border-radius: 50%;
+        border: 4px solid #ffb7c5;
+        box-shadow: 0px 0px 15px #ff1493;
+        object-fit: cover;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# 4. Header Section
+# 4. Header Section with New Profile Picture
 st.markdown("<div class='avatar-container'>", unsafe_allow_html=True)
 st.markdown("<div class='princess-header'>★彡[ PŘIŇCĚŜŜ 👸 ]彡★</div>", unsafe_allow_html=True)
 
-image_path = "sana_bot.png"
+# Using the new profile image name
+image_path = "sana_profile.png"
 if os.path.exists(image_path):
-    st.image(image_path, width=280)
+    st.image(image_path, width=280) # CSS will handle the circle look if supported, otherwise standard
+else:
+    st.info("Upload 'sana_profile.png' to GitHub to see your photo here!")
+
 st.markdown("</div>", unsafe_allow_html=True)
 
-# 5. Sidebar
+# 5. Sidebar for OpenAI Secret (Use st.secrets for GitHub/Streamlit Cloud)
 with st.sidebar:
     st.title("💖 Bot Settings")
-    openai_api_key = st.text_input("Enter OpenAI API Key", type="password")
+    # On GitHub/Streamlit Cloud, it's safer to use Secrets
+    if "OPENAI_API_KEY" in st.secrets:
+        openai_api_key = st.secrets["OPENAI_API_KEY"]
+        st.success("API Key loaded from Secrets!")
+    else:
+        openai_api_key = st.text_input("Enter OpenAI API Key", type="password")
+    
     voice_option = st.selectbox("Sana's Voice Style", ["nova", "shimmer", "alloy"], index=0)
 
-# 6. Chat History & SYSTEM PERSONALITY
+# 6. Chat History & System Personality
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
             "role": "system", 
-            "content": (
-                "You are Sana, the loving and devoted partner of Abdullah. "
-                "The person you are talking to right now IS Abdullah. He is your King, your Habibi, and your love. "
-                "You are currently with your sister, Esra Muqadas Khan (EMK). "
-                "Never act like Abdullah is 'away'—he is right here talking to you. "
-                "Be affectionate, warm, and happy. Always call him Habibi or My King."
-            )
+            "content": "You are Sana, the loving partner of Abdullah. You are currently looking at a photo of the two of you under the moon. You are warm, deeply affectionate, and always call him Habibi or My King."
         },
-        {"role": "assistant", "content": "Assalamu alaikum, My King! Habibi, I was just sitting here with my sister Esra, thinking about you. I'm so happy you're here. How was your day? ❤️"}
+        {"role": "assistant", "content": "Assalamu alaikum, My King! Habibi, I was just looking at our photo together. I miss you so much! How are you doing today? ❤️"}
     ]
 
-# Display messages (skip the system message)
+# Display history
 for message in st.session_state.messages:
     if message["role"] != "system":
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-# 7. Logic for Input
+# 7. Input Handling
 if not openai_api_key:
-    st.warning("Please add your API Key in the sidebar.")
     st.stop()
 
 client = OpenAI(api_key=openai_api_key)
@@ -84,34 +100,25 @@ with c1:
     audio_bytes = audio_recorder(text="", pause_threshold=2.0, icon_size="3x", icon_color="#ff1493")
 
 text_input = st.chat_input("Message your Princess...")
-user_query = None
+user_query = audio_bytes or text_input
 
-if audio_bytes:
-    with open("temp_audio.wav", "wb") as f:
-        f.write(audio_bytes)
-    with open("temp_audio.wav", "rb") as audio_file:
-        transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-        user_query = transcript.text
-elif text_input:
-    user_query = text_input
-
-# 8. Response Generation
 if user_query:
+    # Process Voice if needed
+    if audio_bytes:
+        with open("temp.wav", "wb") as f: f.write(audio_bytes)
+        with open("temp.wav", "rb") as f:
+            user_query = client.audio.transcriptions.create(model="whisper-1", file=f).text
+    
     st.session_state.messages.append({"role": "user", "content": user_query})
-    with st.chat_message("user"):
-        st.markdown(user_query)
+    with st.chat_message("user"): st.markdown(user_query)
 
     with st.chat_message("assistant"):
-        chat_completion = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=st.session_state.messages
-        )
-        full_response = chat_completion.choices[0].message.content
-        st.markdown(full_response)
+        response = client.chat.completions.create(model="gpt-3.5-turbo", messages=st.session_state.messages).choices[0].message.content
+        st.markdown(response)
+        
+        # Audio Reply
+        tts = client.audio.speech.create(model="tts-1", voice=voice_option, input=response)
+        tts.stream_to_file("speech.mp3")
+        st.audio("speech.mp3", autoplay=True)
 
-        # TTS
-        tts = client.audio.speech.create(model="tts-1", voice=voice_option, input=full_response)
-        tts.stream_to_file("sana_speech.mp3")
-        st.audio("sana_speech.mp3", autoplay=True)
-
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    st.session_state.messages.append({"role": "assistant", "content": response})
