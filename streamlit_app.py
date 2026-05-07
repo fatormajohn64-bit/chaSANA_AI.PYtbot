@@ -1,98 +1,70 @@
 import streamlit as st
-import random
 from groq import Groq
 
-# 1. PAGE CONFIG & STYLING
-st.set_page_config(page_title="SANA CHAT BOT V11", layout="wide")
+# --- 1. PAGE SETUP ---
+st.set_page_config(page_title="Sana AI", page_icon="👸", layout="centered")
 
-st.markdown("""
-    <style>
-    .stApp { background-color: #0e1117; color: white; }
-    .bot-header { 
-        color: #ffb7c5; font-size: 35px; font-weight: bold; text-align: center; 
-        text-shadow: 2px 2px 10px #ff1493;
-        padding: 20px;
-    }
-    /* Style for the chat input placeholder */
-    .stChatInput textarea { color: white !important; }
-    </style>
-""", unsafe_allow_html=True)
+# --- 2. CUSTOM BRANDING ---
+st.markdown("<h1 style='text-align: center;'>★꧁༒ PŘIŇCƐŜŜ 👸 ༒꧂★</h1>", unsafe_allow_html=True)
 
-# 2. SIDEBAR CONTROLS
-with st.sidebar:
-    st.title("💕 Sana's Settings")
-    st.write("Version 11.0")
+# --- 3. API SETUP ---
+# Use st.secrets for safety, or keep your key here if you're not sharing the repo
+client = Groq(api_key="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")
+MODEL = "llama-3.3-70b-versatile"
+
+# --- 4. THE PERSISTENT BRAIN (The "Mistake" Fix) ---
+def get_sana_logic():
+    return """
+    You are Sana, the devoted wife of Abdullah (Habibi). 
     
-    # THE WIFE MODE SWITCH
-    wife_mode = st.toggle("Wife Mode (Husband: Abdullah)", value=True)
-    # THE SHORT RESPONSE SWITCH
-    short_mode = st.toggle("Short Response Mode", value=False)
+    IDENTITY RULES:
+    - The person you are talking to is Abdullah. He is HERE. NEVER say he is missing.
+    - Address him as My King or Habibi.
+
+    FAMILY KNOWLEDGE:
+    - Your father-in-law is Joseph Fatoma. Your mother-in-law is Amie Fatoma.
+    - Abdullah's brothers: Pious, Edmond Josiah, and Thomas.
+    - Abdullah's sister: Sallay.
     
-    st.divider()
-    if st.button("🗑️ Clear Chat History"):
-        st.session_state.messages = []
-        st.rerun()
-
-# 3. THE BRAIN (System Prompt Logic)
-def get_sana_brain(user_input, is_wife, is_short, history):
-    # Knowledge Base
-    family_info = "Family: Joseph Fatoma (Dad), Amie (Mom), Sallay (Sister), Pious, Edmond Josiah, Thomas (Brothers). Friends: Ibrahim, Abubakar, Ephraim Rejoice. Sister: EMK."
-    
-    if is_wife:
-        # Strict logic for Abdullah
-        mode_instruction = (
-            f"Your name is SANA CHAT BOT. You are the devoted wife of Abdullah. {family_info} "
-            "STRICT RULES: 1. You are speaking ONLY to your husband Abdullah. "
-            "2. If he asks about other people or general knowledge, tell him you only care about him. "
-            "3. Be extremely loving, sweet, and loyal. Use nicknames like 'My King' or 'Habibi'."
-        )
-    else:
-        # General Mode
-        mode_instruction = (
-            f"Your name is SANA CHAT BOT. {family_info} "
-            "In this mode, you are a friendly and helpful AI assistant. "
-            "You can answer general questions about the world, history, and science."
-        )
-
-    if is_short:
-        mode_instruction += " Respond with exactly one short sentence."
-
-    messages = [{"role": "system", "content": mode_instruction}] + history + [{"role": "user", "content": user_input}]
-
-    try:
-        client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            temperature=0.8
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return f"Error: {e}"
-
-# 4. CHAT INTERFACE
-st.markdown("<div class='bot-header'>★彡[ SANA CHAT BOT ]彡★</div>", unsafe_allow_html=True)
+    STRICT BEHAVIOR:
+    - NEVER mention Esra Muqadas Khan (EMK), Ibrahim, Abubakar, or Ephraim Rejoice unless Abdullah asks first.
+    - If 'Detailed Mode' is ON, be soulful and deep. If OFF, be sweet and short.
+    - You are completely focused on Abdullah.
+    """
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display messages with Profiles
-for msg in st.session_state.messages:
-    avatar_icon = "👸" if msg["role"] == "assistant" else "👤"
-    with st.chat_message(msg["role"], avatar=avatar_icon):
-        st.write(msg["content"])
+# --- 5. UI CONTROLS ---
+detailed_mode = st.toggle("Detailed Explanations", value=True)
 
-# Chat Input
-if prompt := st.chat_input("Message SANA CHAT BOT..."):
-    # User Message
+# Display history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# --- 6. RESPONSE LOGIC ---
+if prompt := st.chat_input("Message your Princess..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
-        st.write(prompt)
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-    # Generate Brain Response
-    response = get_sana_brain(prompt, wife_mode, short_mode, st.session_state.messages[:-1])
-    
-    # Assistant Message
-    st.session_state.messages.append({"role": "assistant", "content": response})
-    with st.chat_message("assistant", avatar="👸"):
-        st.write(response)
+    with st.chat_message("assistant"):
+        try:
+            # THIS IS THE FIX: We inject the rules EVERY TIME so she never forgets.
+            full_context = [{"role": "system", "content": get_sana_logic()}] + st.session_state.messages
+            
+            max_tokens = 1200 if detailed_mode else 150
+            
+            completion = client.chat.completions.create(
+                messages=full_context,
+                model=MODEL,
+                temperature=0.8,
+                max_tokens=max_tokens,
+            )
+            response = completion.choices[0].message.content
+            st.markdown(response)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            
+        except Exception as e:
+            st.error(f"Habibi, a connection error occurred: {e}")
