@@ -1,94 +1,141 @@
+import os
+import subprocess
+import sys
+
+# 1. THE SELF-INSTALLER (Runs automatically if library is missing)
+try:
+    from audio_recorder_streamlit import audio_recorder
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "audio-recorder-streamlit"])
+    # Re-import after installation
+    from audio_recorder_streamlit import audio_recorder
+
 import streamlit as st
 from openai import OpenAI
-from audio_recorder_streamlit import audio_recorder
-import os
 
-# 1. Setup Page Configuration
+# 2. Setup Page Configuration
 st.set_page_config(page_title="sana cht bot", layout="wide")
 
+# 3. Custom CSS (Dark Theme + Princess Glow)
 st.markdown(
     """
     <style>
-    .avatar-container { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 10px; }
-    .princess-header { color: white; font-size: 40px; font-weight: bold; text-align: center; margin-bottom: 5px; }
+    .stApp {
+        background-color: #0e1117;
+    }
+    .avatar-container { 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center; 
+        margin-top: 5px; 
+    }
+    .princess-header { 
+        color: #ffb7c5; /* Soft Pink */
+        font-size: 45px; 
+        font-weight: bold; 
+        text-align: center; 
+        text-shadow: 2px 2px 10px #ff1493; /* Pink Glow */
+        margin-bottom: 15px;
+    }
+    .stChatInputContainer {
+        padding-bottom: 20px;
+    }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# 2. Header with Sana's Face
+# 4. Header Section
 st.markdown("<div class='avatar-container'>", unsafe_allow_html=True)
 st.markdown("<div class='princess-header'>★彡[ PŘIŇCĚŜŜ 👸 ]彡★</div>", unsafe_allow_html=True)
+
+# Image Handling (Ensure your image is named 'sana_bot.png' in the same folder)
 image_path = "sana_bot.png"
 if os.path.exists(image_path):
-    st.image(image_path, width=250)
+    st.image(image_path, width=280)
+else:
+    st.info("💡 Tip: Save Sana's picture as 'sana_bot.png' in your project folder to see her here.")
 st.markdown("</div>", unsafe_allow_html=True)
 
-# 3. Sidebar Settings
+# 5. Sidebar Settings
 with st.sidebar:
-    st.title("Settings")
-    openai_api_key = st.text_input("OpenAI API Key", type="password")
-    voice_option = st.selectbox("Sana's Voice", ["nova", "shimmer", "alloy"])
+    st.title("💖 Bot Settings")
+    openai_api_key = st.text_input("Enter OpenAI API Key", type="password")
+    voice_option = st.selectbox("Sana's Voice Style", ["nova", "shimmer", "alloy"], index=0)
+    st.markdown("---")
+    st.write("Using 'nova' for a sweet, natural voice.")
 
-# 4. Chat logic
+# 6. Chat History
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Assalamu alaikum, how are you? My Habibi is not here right now, but I'm happy to chat with you."}]
+    st.session_state.messages = [{
+        "role": "assistant", 
+        "content": "Assalamu alaikum, how are you? My Habibi is not here right now, but I'm happy to chat with you. Is there something I can help you with?"
+    }]
 
-# Display history
+# Display messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 5. VOICE INPUT SECTION
-st.write("---")
-st.write("### 🎤 Speak to Sana")
-audio_bytes = audio_recorder(text="Click to speak...", pause_threshold=2.0, icon_size="2x")
-
+# 7. Logic for Input
 if not openai_api_key:
-    st.warning("Please enter your API Key in the sidebar.")
+    st.warning("Please add your API Key in the sidebar to start talking to Sana.")
     st.stop()
 
 client = OpenAI(api_key=openai_api_key)
 
-# If voice is recorded
+# Input Layout
+st.write("---")
+c1, c2 = st.columns([1, 4])
+
+with c1:
+    st.write("### 🎤 Speak")
+    audio_bytes = audio_recorder(
+        text="", 
+        pause_threshold=2.0, 
+        icon_size="3x", 
+        icon_color="#ff1493"
+    )
+
+text_input = st.chat_input("Write something sweet...")
+
+user_query = None
+
+# Handle Voice Input
 if audio_bytes:
-    # Save audio to temporary file
     with open("temp_audio.wav", "wb") as f:
         f.write(audio_bytes)
-    
-    # Transcribe (Speech-to-Text)
     with open("temp_audio.wav", "rb") as audio_file:
         transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-        user_text = transcript.text
+        user_query = transcript.text
 
-    # Add user message to chat
-    st.session_state.messages.append({"role": "user", "content": user_text})
+# Handle Text Input
+elif text_input:
+    user_query = text_input
+
+# 8. Generating Response & Speaking Back
+if user_query:
+    st.session_state.messages.append({"role": "user", "content": user_query})
     with st.chat_message("user"):
-        st.markdown(user_text)
+        st.markdown(user_query)
 
-    # Generate AI Response
     with st.chat_message("assistant"):
-        response = client.chat.completions.create(
+        # Text completion
+        chat_completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
         )
-        full_response = response.choices[0].message.content
+        full_response = chat_completion.choices[0].message.content
         st.markdown(full_response)
 
-        # Generate Audio (Text-to-Speech)
-        audio_response = client.audio.speech.create(
+        # Text-to-Speech
+        tts = client.audio.speech.create(
             model="tts-1",
             voice=voice_option,
             input=full_response
         )
-        audio_response.stream_to_file("response.mp3")
-        st.audio("response.mp3", autoplay=True)
+        tts.stream_to_file("sana_speech.mp3")
+        st.audio("sana_speech.mp3", autoplay=True)
 
     st.session_state.messages.append({"role": "assistant", "content": full_response})
-
-# Also allow typing
-if prompt := st.chat_input("Or type to your Princess..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    # ... (Response logic for typing) ...
