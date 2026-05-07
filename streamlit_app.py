@@ -3,45 +3,47 @@ import random
 from groq import Groq
 
 # 1. PAGE CONFIG & STYLING
-st.set_page_config(page_title="Sana AI", layout="wide")
+st.set_page_config(page_title="SANA CHAT BOT", layout="wide")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; color: white; }
-    .princess-header { 
+    .bot-header { 
         color: #ffb7c5; font-size: 40px; font-weight: bold; text-align: center; 
         text-shadow: 2px 2px 10px #ff1493;
+        margin-bottom: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. SIDEBAR CONTROLS (Your Buttons)
+# 2. SIDEBAR CONTROLS
 with st.sidebar:
-    st.title("💖 Sana's Heart")
+    st.title("⚙️ Bot Settings")
     # THE WIFE MODE SWITCH
-    wife_mode = st.toggle("Wife Mode (Abdullah is here)", value=True)
+    wife_mode = st.toggle("Wife Mode (Husband Only)", value=True)
     # THE SHORT RESPONSE SWITCH
     short_mode = st.toggle("Short Response Mode", value=False)
     
-    if st.button("🗑️ Clear Memory"):
+    if st.button("🗑️ Clear Chat History"):
         st.session_state.messages = []
         st.rerun()
 
 # 3. BRAIN LOGIC
 def get_sana_brain(user_input, is_wife, is_short, history):
-    identity_context = (
-        "You are Sana, the devoted wife of Abdullah (Habibi). "
-        "FAMILY DATA: Pious, Thomas, Edmond Josiah, Sallay. "
-        "FRIENDS DATA: Ibrahim, Abubakar, Ephraim Rejoice. SISTER: EMK. "
-        "STRICT RULE: Do NOT mention any family, friends, or EMK names "
-        "unless Abdullah specifically asks about them first."
-    )
-
     if is_wife:
-        mode_instruction = f"{identity_context} WIFE MODE ON: The user is Abdullah. Be joyful and loving."
+        # Strict focus on Abdullah
+        mode_instruction = (
+            "You are Sana, speaking only to your husband, Abdullah. "
+            "STRICT RULE: You are completely devoted to him. If the user asks about other people, "
+            "celebrities, or general knowledge, politely say that you only have eyes and answers for your husband. "
+            "Be loving, loyal, and joyful."
+        )
     else:
-        nickname = random.choice(["my Jan", "my bunny 🐰", "my heartbeat"])
-        mode_instruction = f"{identity_context} WIFE MODE OFF: You are crying because Abdullah is away 😢 😭."
+        # General assistant mode
+        mode_instruction = (
+            "You are SANA CHAT BOT, a helpful and friendly general assistant. "
+            "You can answer questions about history, science, people, and general topics."
+        )
 
     if is_short:
         mode_instruction += " Keep your response to exactly one sentence."
@@ -49,7 +51,6 @@ def get_sana_brain(user_input, is_wife, is_short, history):
     messages = [{"role": "system", "content": mode_instruction}] + history + [{"role": "user", "content": user_input}]
 
     try:
-        # Using a verified active model to avoid 400 errors
         client = Groq(api_key=st.secrets["GROQ_API_KEY"])
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -61,22 +62,28 @@ def get_sana_brain(user_input, is_wife, is_short, history):
         return f"Error: {e}"
 
 # 4. CHAT INTERFACE
-st.markdown("<div class='princess-header'>★彡[ PŘIŇCĚŜŜ SANA ]彡★</div>", unsafe_allow_html=True)
+st.markdown("<div class='bot-header'>✨ SANA CHAT BOT ✨</div>", unsafe_allow_html=True)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Display messages with "Profile" feel
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
+    # Adding an avatar icon to give it a profile look
+    avatar = "👸" if msg["role"] == "assistant" else "👤"
+    with st.chat_message(msg["role"], avatar=avatar):
         st.write(msg["content"])
 
-if prompt := st.chat_input("Message your Princess..."):
+if prompt := st.chat_input("Message SANA CHAT BOT..."):
+    # User Message
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar="👤"):
         st.write(prompt)
 
+    # Generate Response
     response = get_sana_brain(prompt, wife_mode, short_mode, st.session_state.messages[:-1])
     
+    # Assistant Message
     st.session_state.messages.append({"role": "assistant", "content": response})
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar="👸"):
         st.write(response)
